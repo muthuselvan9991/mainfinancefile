@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Finance Reports and Calculations</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--tx:#1b1f24;--mu:#6b7280;--ac:#0f766e;--bd:#e2e5ea;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111418;--card:#1b2026;--tx:#eceff3;--mu:#98a2b0;--ac:#2dd4bf;--bd:#2c333b}}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px}
+h1{font-size:22px;margin:0 0 4px}.sub{color:var(--mu);font-size:13px;margin-bottom:14px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer}
+button.g{background:transparent;color:var(--tx);border:1px solid var(--bd)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:18px}
+.hd{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:10px}
+.hd input{font-size:18px;font-weight:700;border:0;border-bottom:2px solid var(--ac);background:transparent;color:var(--tx);padding:4px;min-width:160px}
+.sc{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:1850px;font-size:13px}
+th{background:var(--bg);text-align:left;padding:8px 6px;white-space:nowrap;border-bottom:1px solid var(--bd)}
+td{padding:4px;border-bottom:1px solid var(--bd)}
+td input{width:100%;box-sizing:border-box;padding:6px;border:1px solid var(--bd);border-radius:6px;background:var(--card);color:var(--tx);font-size:13px}
+td.o{font-weight:600;white-space:nowrap;padding:4px 8px}
+tfoot td{font-weight:700;padding:8px 6px}
+.x{background:transparent;color:#dc2626;padding:4px 8px;font-size:16px}
+#ov{display:none}body.pm h1,body.pm .sub,body.pm .bar,body.pm #app{display:none}
+.mb{background:var(--card);border-radius:12px;padding:14px;width:100%;box-sizing:border-box}
+@media print{body.pm #app,body.pm h1,body.pm .sub{display:none}#ov{position:static;background:none;padding:0}.bar,.x,.add,.dl{display:none}body{background:#fff;color:#000}.card{border:0}input{border:0!important}}
+#lg{display:flex;min-height:85vh;align-items:center;justify-content:center}
+.lc{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:26px;width:min(360px,100%);box-sizing:border-box}
+.lc h2{margin:0 0 4px;font-size:20px}.lc label{display:block;font-size:13px;color:var(--mu);margin:14px 0 4px}
+.lc input{width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font-size:15px}
+.lc button.go{width:100%;margin-top:18px;padding:11px;font-size:15px}
+#lerr{color:#dc2626;font-size:13px;min-height:18px;margin-top:10px}
+@media print{#lg{display:none!important}}
+</style></head><body>
+<div id="lg"><div class="lc">
+<h2>💰 Finance Reports</h2><div style="color:var(--mu);font-size:13px">Login pannunga</div>
+<label>User Name</label><input id="lu" type="text" autocomplete="username" onkeydown="if(event.key=='Enter')document.getElementById('lp').focus()">
+<label>Password</label><input id="lp" type="password" autocomplete="current-password" onkeydown="if(event.key=='Enter')doLogin()">
+<label style="display:flex;gap:6px;align-items:center;margin-top:10px"><input type="checkbox" style="width:auto" onchange="document.getElementById('lp').type=this.checked?'text':'password'"> Show password</label>
+<div id="lerr"></div>
+<button class="go" onclick="doLogin()">Login</button>
+</div></div>
+<div id="main" style="display:none">
+<h1>Finance Reports and Calculations</h1>
+<div class="sub">Amount + Rate enter pannina Per Day / Per Month interest auto-a varum. Start Date + Days enter pannina End Date varum.</div>
+<div class="bar">
+<label style="font-size:13px">Rate basis:
+<select id="basis" onchange="save();render()"><option value="30">per month (₹ per 100 / month)</option><option value="365">per year (% per annum)</option></select></label>
+<button onclick="dlAll()">⬇ Download All (Excel/CSV)</button>
+<button class="g" onclick="window.print()">🖨 Print / Save PDF</button>
+<button style="background:#dc2626" onclick="showTO(-1)">⏳ All Pending Name List</button>
+<button style="background:#16a34a" onclick="showTO(-1,'d')">✅ All Deposited Name List</button>
+<button style="background:#7c3aed" onclick="showTO(-1,'f')">💹 Overall Interest</button>
+<button style="background:#0ea5e9" onclick="showExp()">🧾 Expenses</button>
+<button style="background:#b45309" onclick="showOver()">⌛ End Date Over Name List</button>
+<span id="ulbl" style="margin-left:auto;font-size:13px;color:var(--mu)"></span><button class="g" onclick="logout()">Logout</button>
+</div>
+<div id="app"></div>
+<div id="ov"></div>
+</div>
+<script>
+let S;
+const blank=()=>({name:"",native:"",guar:"",amt:"",rate:"",start:"",days:"",dep:"",type:""});
+function load(){try{S=JSON.parse(localStorage.getItem("fin2"))}catch(e){}
+if(!S){try{S=JSON.parse(localStorage.getItem("fin1"))}catch(e){}}
+if(!S)S={basis:"30",p:[{title:"",rows:[blank()]},{title:"",rows:[blank()]}]}
+const T=["Partner 1 - Elangovan","Partner 2 - Mathiyalagan"];S.p.forEach((p,i)=>{if(!p.title||/^Partner [12]$/.test(p.title))p.title=T[i]})}
+function save(){S.basis=document.getElementById("basis").value;try{localStorage.setItem("fin2",JSON.stringify(S))}catch(e){}}
+const B=()=>+S.basis;
+function pday(r){return (+r.amt||0)*(+r.rate||0)/100/B()}
+function pmon(r){return pday(r)*30}
+function st(r){const a=+r.amt||0;if(!a)return"";return dep(r)>=a?"Done":"Pending"}
+function stBadge(r){const t=st(r);if(!t)return"";const c=t=="Done"?"#16a34a":"#d97706";return `<span style="background:${c};color:#fff;padding:3px 10px;border-radius:12px;font-size:12px">${t}</span>`}
+function cnt(r){const d=+r.days||0;if(!d||!r.type)return 0;
+if(r.type=="D")return d;
+if(r.type=="M")return Math.max(1,Math.floor(d/30));
+if(r.type=="W"){if(!r.start)return 0;const[y,m,dd]=r.start.split('-').map(Number);let c=0;for(let i=1;i<=d;i++){if(new Date(y,m-1,dd+i).getDay()==0)c++}return Math.max(1,c)}return 0}
+function pay(r){const n=cnt(r);if(!n)return 0;return Math.ceil(((+r.amt||0)+intr(r))/n)}
+function payCell(r){const n=cnt(r);if(!n)return"";const u={W:"Sundays",M:"months",D:"days"}[r.type];return f(pay(r))+' <small style="color:var(--mu);font-weight:400">× '+n+' '+u+'</small>'}
+function sumP(r){return (r.pays||[]).reduce((s,x)=>s+(+x.a||0),0)}
+function hasP(r){return !!(r.pays&&r.pays.length)}
+function dep(r){return hasP(r)?sumP(r):(+r.dep||0)}
+function intr(r){return pday(r)*(+r.days||0)}
+function endD(r){if(!r.start||!r.days)return"";const[y,m,dd]=r.start.split('-').map(Number);const d=new Date(y,m-1,dd+ +r.days);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function fd(s){if(!s)return"";const[a,b,c]=s.split("-");return c+"-"+b+"-"+a}
+const f=n=>n.toLocaleString("en-IN",{maximumFractionDigits:2});
+function render(){document.getElementById("basis").value=S.basis;
+document.getElementById("app").innerHTML=S.p.map((p,i)=>`<div class="card"><div class="hd">
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><input value="${p.title.replace(/"/g,"&quot;")}" onchange="S.p[${i}].title=this.value;save()"><button style="background:#d97706" onclick="showTO(${i})">⏳ Pending Name List</button><button style="background:#16a34a" onclick="showTO(${i},'d')">✅ Deposited Name List</button><button style="background:#7c3aed" onclick="showTO(${i},'f')">💹 Profit</button></div>
+<span class="dl"><button onclick="add(${i})" class="add">+ Add Row</button> <button class="g" onclick="dl(${i})">⬇ Download</button></span></div>
+<div class="sc"><table><thead><tr><th>No</th><th>Name</th><th>Phone Number</th><th>Guarantor Name</th><th>Type</th><th>Amount ₹</th><th>Interest Rate</th><th>Per Day Interest ₹</th><th>Per Month Interest ₹</th><th>Starting Date</th><th>Days (75/100...)</th><th>End Date</th><th>Method (Pay) ₹</th><th>Deposit Amount ₹</th><th>Total Interest ₹</th><th>Status</th><th>Details</th><th></th></tr></thead><tbody>
+${p.rows.map((r,j)=>`<tr><td>${j+1}</td>
+<td><input value="${r.name}" oninput="S.p[${i}].rows[${j}].name=this.value;save()" onchange="u(${i},${j},'name',this.value)"></td>
+<td><input type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="10" placeholder="10 digit number" value="${String(r.native).replace(/[^0-9]/g,'').slice(0,10)}" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);S.p[${i}].rows[${j}].native=this.value;save();var a=this.closest('tr').querySelector('.amt');if(a){a.readOnly=this.value.length!=10;a.placeholder=a.readOnly?'Phone 10 digit mudhala':''}" onchange="u(${i},${j},'native',this.value.replace(/[^0-9]/g,'').slice(0,10))"></td>
+<td><input value="${r.guar}" oninput="S.p[${i}].rows[${j}].guar=this.value;save()" onchange="u(${i},${j},'guar',this.value)"></td>
+<td><select onchange="u(${i},${j},'type',this.value)" style="padding:6px;border:1px solid var(--bd);border-radius:6px;background:var(--card);color:var(--tx);font-size:13px"><option value="">Select</option><option value="W"${r.type=="W"?" selected":""}>W - Weekly</option><option value="M"${r.type=="M"?" selected":""}>M - Monthly</option><option value="D"${r.type=="D"?" selected":""}>D - Daily</option></select></td>
+<td><input class="amt" type="number" value="${r.amt}"${ph10(r)?"":' readonly placeholder="Phone 10 digit mudhala"'} onclick="needPh(this)" onfocus="needPh(this)" onchange="u(${i},${j},'amt',this.value)"></td>
+<td><input type="number" step="0.01" value="${r.rate}" onchange="u(${i},${j},'rate',this.value)"></td>
+<td class="o">${f(pday(r))}</td>
+<td class="o">${f(pmon(r))}</td>
+<td><input type="text" inputmode="numeric" maxlength="10" placeholder="dd-mm-yyyy" value="${fd(r.start)}" oninput="fmtD(this)" onchange="setD(${i},${j},this.value)" style="min-width:110px"></td>
+<td><input type="number" value="${r.days}" onchange="u(${i},${j},'days',this.value)"></td>
+<td class="o">${fd(endD(r))}</td>
+<td class="o">${payCell(r)}</td>
+<td class="o">${f(dep(r))}</td>
+<td class="o">${f(intr(r))}</td>
+<td class="o">${stBadge(r)}${st(r)=="Done"?((r.name&&r.native&&r.type)?` <button onmousedown="event.preventDefault()" onclick="submitRow(${i},${j})" style="padding:4px 10px;font-size:12px;margin-left:6px">Submit</button>`:` <small style="color:#dc2626">Name, Phone, Type podunga</small>`):""}${intNote(r)}</td>
+<td><button class="g" onclick="showDet(${i},${j})" style="padding:6px 12px;font-size:12px">Details</button></td>
+<td><button class="x" onclick="del(${i},${j})">✕</button></td></tr>`).join("")}
+</tbody><tfoot><tr><td colspan="5">Total</td><td>${f(p.rows.reduce((s,r)=>s+(+r.amt||0),0))}</td><td></td><td>${f(p.rows.reduce((s,r)=>s+pday(r),0))}</td><td>${f(p.rows.reduce((s,r)=>s+pmon(r),0))}</td><td colspan="3"></td><td></td><td>${f(p.rows.reduce((s,r)=>s+dep(r),0))}</td><td>${f(p.rows.reduce((s,r)=>s+intr(r),0))}</td><td></td><td></td><td></td></tr></tfoot></table></div><div class="dl" style="margin-top:10px"><button class="add" onclick="add(${i})">+ Add Row</button></div></div>`).join("")}
+function fmtD(el){let d=el.value.replace(/\D/g,"").slice(0,8),o=d;if(d.length>4)o=d.slice(0,2)+"-"+d.slice(2,4)+"-"+d.slice(4);else if(d.length>2)o=d.slice(0,2)+"-"+d.slice(2);el.value=o}
+function setD(i,j,v){const m=v.match(/^(\d{2})-(\d{2})-(\d{4})$/);let iso="";if(m){const d=new Date(+m[3],+m[2]-1,+m[1]);if(d.getDate()==+m[1]&&d.getMonth()==+m[2]-1){iso=m[3]+"-"+m[2]+"-"+m[1]}else alert("Date seriyilla: "+v)}else if(v)alert("dd-mm-yyyy format-la podunga (e.g. 01-10-2026)");u(i,j,"start",iso)}
+function needPh(el){if(el.readOnly)toast("📞 Mudhalla Phone Number 10 digit enter pannunga","#dc2626")}
+function ph10(r){return String(r.native||'').replace(/[^0-9]/g,'').length==10}
+function u(i,j,k,v){try{const t=window.event&&window.event.target;if(t&&t.nodeType==1&&!t.isConnected)return}catch(e){}if(!S.p[i]||!S.p[i].rows[j])return;if(k=='amt'&&!ph10(S.p[i].rows[j]))return;S.p[i].rows[j][k]=v;save();render()}
+function add(i){S.p[i].rows.push(blank());save();render()}
+function del(i,j){if(S.p[i].rows.length>1)S.p[i].rows.splice(j,1);else S.p[i].rows[0]=blank();save();render()}
+const H=["No","Name","Phone Number","Guarantor Name","Type","Amount","Interest Rate","Per Day Interest","Per Month Interest","Starting Date","Days","End Date","Pay","Deposit Amount","Total Interest","Status"];
+const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+function csv(p){let o=[[p.title],H];p.rows.forEach((r,j)=>o.push([j+1,r.name,r.native,r.guar,({W:'Weekly',M:'Monthly',D:'Daily'})[r.type]||'',r.amt,r.rate,pday(r).toFixed(2),pmon(r).toFixed(2),fd(r.start),r.days,fd(endD(r)),pay(r)||'',dep(r)||'',intr(r).toFixed(2),st(r)]));
+o.push(["Total","","","","",p.rows.reduce((s,r)=>s+(+r.amt||0),0),"",p.rows.reduce((s,r)=>s+pday(r),0).toFixed(2),p.rows.reduce((s,r)=>s+pmon(r),0).toFixed(2),"","","","",p.rows.reduce((s,r)=>s+dep(r),0),p.rows.reduce((s,r)=>s+intr(r),0).toFixed(2),""]);return o.map(r=>r.map(q).join(",")).join("\n")}
+function get(name,t){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+t],{type:"text/csv;charset=utf-8"}));a.download=name;a.click()}
+function dl(i){get(S.p[i].title+"-report.csv",csv(S.p[i]))}
+function dlAll(){get("finance-report.csv",S.p.map(csv).join("\n\n"))}
+let curK=-1,curM='p';
+function tdy(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function tl(r){return ({W:'Weekly',M:'Monthly',D:'Daily'})[r.type]||''}
+function toast(m,c){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.style.cssText="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#16a34a;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:99;box-shadow:0 4px 14px rgba(0,0,0,.3)";document.body.appendChild(t)}t.style.background=c||"#16a34a";t.textContent=m;t.style.display="block";clearTimeout(t._h);t._h=setTimeout(()=>{t.style.display="none"},2500)}
+function submitRow(i,j){try{if(document.activeElement&&document.activeElement.blur)document.activeElement.blur()}catch(e){}
+const p=S.p[i],r=p&&p.rows[j];if(!r||st(r)!="Done")return;const du=idue(r,tdy());if(du>0){toast("⚠ Interest kattalai: ₹"+f(du)+" baaki. Interest katta piragu dhaan Done kudukka mudiyum","#dc2626");return}
+const nm=r.name;r.subm=tdy();(p.done=p.done||[]).push(r);p.rows.splice(j,1);if(!p.rows.length)p.rows.push(blank());save();render();toast("✅ "+nm+" - Deposited Name List-ku poiduchu")}
+function restoreRow(x,y){const p=S.p[x],r=p.done.splice(y,1)[0];if(!r)return;delete r.subm;if(p.rows.length==1&&!p.rows[0].amt&&!p.rows[0].name)p.rows[0]=r;else p.rows.push(r);save();render();openTO(curK,curM)}
+function showTO(k,m){m=m||'p';openTO(k,m);try{history.pushState(null,"","#"+m+k)}catch(e){}}
+function hideTO(){closeTO();try{if(/^#([pdf]-?\d+|x\d+_\d+|e|o)$/.test(location.hash))history.back()}catch(e){}}
+window.addEventListener("popstate",()=>{const h=location.hash;let m=h.match(/^#([pdf])(-?\d+)$/);if(m)return openTO(+m[2],m[1]);m=h.match(/^#x(\d+)_(\d+)$/);if(m)return openDet(+m[1],+m[2]);if(h=="#e")return openExp();h=="#o"?openOver():closeTO()});
+function toRows(k){const o=[];S.p.forEach((p,x)=>{if(k>=0&&x!=k)return;p.rows.forEach(r=>{const a=+r.amt||0,d=dep(r);if(a>0&&d<a)o.push({pt:p.title,name:r.name,ph:r.native,g:r.guar,a:a,d:d,b:a-d})})});return o}
+function toRowsD(k){const o=[];S.p.forEach((p,x)=>{if(k>=0&&x!=k)return;(p.done||[]).forEach((r,y)=>o.push({pt:p.title,x:x,y:y,r:r}))});return o}
+function ttl(k,m){if(m=='f')return k>=0&&S.p[k]?S.p[k].title+" - Profit":"Overall Interest";if(m=='d')return k>=0&&S.p[k]?S.p[k].title+" - Deposited Name List":"All Deposited Name List";return k>=0&&S.p[k]?S.p[k].title+" - Pending Name List":"All Pending Name List"}
+function openTO(k,m){if(k===undefined)k=-1;m=m||'p';curK=k;curM=m;const all=k<0,ov=document.getElementById("ov");let hd,tb,ft,ex="";
+if(m=='d'){const o=toRowsD(k);
+hd=`<th>No</th>${all?"<th>Partner</th>":""}<th>Name</th><th>Phone Number</th><th>Guarantor Name</th><th>Type</th><th>Amount ₹</th><th>Total Interest ₹</th><th>Deposit ₹</th><th>Submitted On</th><th></th>`;
+tb=o.length?o.map((e,i)=>{const r=e.r;return `<tr><td>${i+1}</td>${all?"<td>"+e.pt+"</td>":""}<td>${r.name}</td><td>${r.native}</td><td>${r.guar}</td><td>${tl(r)}</td><td>${f(+r.amt||0)}</td><td>${f(intr(r))}</td><td style="font-weight:700;color:#16a34a">${f(dep(r))}</td><td>${fd(r.subm)}</td><td><button class="x" style="color:var(--ac)" onclick="restoreRow(${e.x},${e.y})">↩ Restore</button></td></tr>`}).join(""):`<tr><td colspan="${all?11:10}" style="padding:16px;text-align:center">Innum yaarum deposited list-ku submit aagala</td></tr>`;
+ft=`<td colspan="${all?6:5}">Total</td><td>${f(o.reduce((s,e)=>s+(+e.r.amt||0),0))}</td><td>${f(o.reduce((s,e)=>s+intr(e.r),0))}</td><td>${f(o.reduce((s,e)=>s+dep(e.r),0))}</td><td></td><td></td>`}
+else if(m=='f'){const o=toRowsD(k);const tA=o.reduce((s,e)=>s+(+e.r.amt||0),0),tI=o.reduce((s,e)=>s+intr(e.r),0),tL=o.reduce((s,e)=>s+ipaid(e.r),0);
+hd=`<th>No</th>${all?"<th>Partner</th>":""}<th>Name</th><th>Type</th><th>Amount ₹</th><th>Interest ₹</th><th>Late Interest ₹</th>`;
+tb=o.length?o.map((e,i)=>`<tr><td>${i+1}</td>${all?"<td>"+e.pt+"</td>":""}<td>${e.r.name}</td><td>${tl(e.r)}</td><td>${f(+e.r.amt||0)}</td><td style="font-weight:700;color:#16a34a">${f(intr(e.r))}</td><td style="font-weight:700;color:#16a34a">${f(ipaid(e.r))}</td></tr>`).join(""):`<tr><td colspan="${all?7:6}" style="padding:16px;text-align:center">Innum yaarum submit aagala, profit illa</td></tr>`;
+ft=`<td colspan="${all?4:3}">Total</td><td>${f(tA)}</td><td>${f(tI)}</td><td>${f(tL)}</td>`;
+ex=profBoxes(k)}
+else{const o=toRows(k);
+hd=`<th>No</th>${all?"<th>Partner</th>":""}<th>Name</th><th>Phone Number</th><th>Guarantor Name</th><th>Amount ₹</th><th>Deposit ₹</th><th>Balance ₹</th>`;
+tb=o.length?o.map((r,i)=>`<tr><td>${i+1}</td>${all?"<td>"+r.pt+"</td>":""}<td>${r.name}</td><td>${r.ph}</td><td>${r.g}</td><td>${f(r.a)}</td><td>${f(r.d)}</td><td style="font-weight:700;color:#dc2626">${f(r.b)}</td></tr>`).join(""):`<tr><td colspan="${all?8:7}" style="padding:16px;text-align:center">Yaarum pending illa - ellarum Done ✅</td></tr>`;
+ft=`<td colspan="${all?5:4}">Total</td><td>${f(o.reduce((s,r)=>s+r.a,0))}</td><td>${f(o.reduce((s,r)=>s+r.d,0))}</td><td>${f(o.reduce((s,r)=>s+r.b,0))}</td>`}
+ov.innerHTML=`<div class="mb"><div class="hd"><b style="font-size:18px">${ttl(k,m)}</b><span class="dl"><button onclick="dlTO(${k},'${m}')">⬇ Download</button> <button class="g" onclick="window.print()">🖨 Print</button> <button class="g" onclick="hideTO()">← Back</button></span></div>${ex}<div class="sc"><table style="min-width:${m=='d'?950:700}px"><thead><tr>${hd}</tr></thead><tbody>${tb}</tbody><tfoot><tr>${ft}</tr></tfoot></table></div></div>`;
+ov.style.display="block";document.body.classList.add("pm");window.scrollTo(0,0)}
+function addD(iso,n){const[y,m,d]=iso.split("-").map(Number),t=new Date(Date.UTC(y,m-1,d+n));return t.toISOString().slice(0,10)}
+function sched(r){const d=+r.days||0;if(!r.start||!d||!r.type)return[];const e=addD(r.start,d);let a=[];
+if(r.type=="D")for(let i=1;i<=d;i++)a.push(addD(r.start,i));
+else if(r.type=="W"){for(let i=1;i<=d;i++){const x=addD(r.start,i);const[y,m,dd]=x.split("-").map(Number);if(new Date(Date.UTC(y,m-1,dd)).getUTCDay()==0)a.push(x)}if(!a.length)a=[e]}
+else if(r.type=="M"){const n=Math.max(1,Math.floor(d/30));if(d<30)a=[e];else for(let i=1;i<=n;i++)a.push(addD(r.start,30*i))}
+return a}
+function missInfo(r){const S2=sched(r),pa=pay(r);if(!S2.length||!pa)return null;const T=tdy(),n=S2.length,due=S2.filter(x=>x<=T).length;
+const cleared=dep(r)>=(+r.amt||0)&&(+r.amt||0)>0;const covered=Math.min(n,Math.floor((dep(r)+1e-9)/pa));const missed=cleared?0:Math.max(0,due-covered);
+return{due:due,covered:covered,missed:missed,amt:missed*pa,pa:pa,n:n,dates:cleared?[]:S2.slice(covered,due)}}
+function missBoxes(r){const m=missInfo(r);if(!m)return"";const u={D:"days",W:"weeks",M:"months"}[r.type];const ok=m.missed==0;
+let h=box("Installments Due (till today)",m.due+" / "+m.n+" "+u)+box("Paid (covered)",m.covered+" "+u)+box("Missed to Pay",`<span style="color:${ok?"#16a34a":"#dc2626"};font-size:18px">${ok?"0 - ellam sariya katti irukkaanga":m.missed+" "+u+" (₹"+f(m.amt)+")"}</span>`);
+if(!ok){const L=m.dates.slice(0,20).map(fd).join(", ")+(m.dates.length>20?" +"+(m.dates.length-20)+" more":"");h+=`<div style="grid-column:1/-1;border:1px solid #dc2626;border-radius:8px;padding:8px 10px"><div style="color:var(--mu);font-size:12px">Missed dates (kattaadha naal)</div><div style="font-weight:600;margin-top:2px;color:#dc2626">${L}</div></div>`}
+return h}
+function profInt(r){return intr(r)+ipaid(r)}
+function ipaid(r){return (r.ipays||[]).reduce((t,x)=>t+(+x.a||0),0)}
+function accr(r,upTo){const e=endD(r);if(!e||!upTo)return 0;const[y,m,d]=e.split("-").map(Number),[y2,m2,d2]=upTo.split("-").map(Number);const endT=Date.UTC(y2,m2-1,d2);
+const P=(r.pays||[]).map(x=>({t:x.d||"0000-00-00",a:+x.a||0})),hp=hasP(r),amt=+r.amt||0,rt=(+r.rate||0)/100/B();let tot=0;
+for(let t=Date.UTC(y,m-1,d+1);t<=endT;t+=86400000){const iso=new Date(t).toISOString().slice(0,10);const paid=hp?P.filter(x=>x.t<=iso).reduce((q,x)=>q+x.a,0):(+r.dep||0);tot+=Math.max(0,amt-paid)*rt}
+return tot}
+function idue(r,upTo){return Math.max(0,Math.round((accr(r,upTo)-ipaid(r))*100)/100)}
+function intNote(r){const d=idue(r,tdy());return d>0?` <small style="color:#dc2626;display:block">Interest ₹${f(d)} baaki</small>`:""}
+function over(r){const e=endD(r);if(!e)return null;const c=r.cdate||tdy();const[y1,m1,d1]=e.split("-").map(Number),[y2,m2,d2]=c.split("-").map(Number);
+const days=Math.max(0,Math.round((Date.UTC(y2,m2-1,d2)-Date.UTC(y1,m1-1,d1))/86400000));
+const bal=Math.max(0,(+r.amt||0)-dep(r));const perDay=bal*(+r.rate||0)/100/B();const tot=accr(r,c);return{days:days,perDay:perDay,tot:tot,bal:bal,paid:ipaid(r),due:idue(r,c)}}
+function setTE(i,j,v){const r=S.p[i].rows[j];r.te=v=="Y"?"Y":"N";if(r.te=="Y"&&!r.cdate)r.cdate=tdy();save();render();openDet(i,j)}
+function setCD(i,j,v){const r=S.p[i].rows[j],d=parseD(v);if(d)r.cdate=d;save();render();openDet(i,j)}
+function teAuto(r){const e=endD(r);if(!e)return"N";return tdy()>e?"Y":"N"}
+function teBoxes(r,i,j,bal,inp){const te=teAuto(r);
+let h=box("Time End?",te=="Y"?'<span style="background:#dc2626;color:#fff;padding:3px 14px;border-radius:12px">Yes</span>':'<span style="background:#16a34a;color:#fff;padding:3px 14px;border-radius:12px">No</span>');
+if(te!="Y")return h;
+h+=box("Current Date",`<input type="text" inputmode="numeric" maxlength="10" placeholder="dd-mm-yyyy" value="${fd(r.cdate||tdy())}" oninput="fmtD(this)" onchange="setCD(${i},${j},this.value)" style="${inp};width:125px">`);
+const x=over(r);
+if(!x)return h;
+return h+box("Overdue Days",x.days+(x.days?"":" (innum time mudiyala)"))+box("Per Day Interest on Balance ₹",f(x.perDay))+box("Interest till Current Date ₹",`<span style="color:#dc2626;font-size:18px">${f(x.tot)}</span>`)+box("Interest Paid ₹",f(x.paid))+box("Interest Due ₹",`<span style="color:${x.due>0?"#dc2626":"#16a34a"};font-size:18px">${f(x.due)}</span>`)+box("Balance + Interest Due ₹",f(x.bal+x.due))}
+function profSum(k){const E=(S.exp||[]).reduce((t,x)=>t+(+x.p||0),0),n=S.p.length||1,sh=E/n,lt=x=>S.p[x].rows.concat(S.p[x].done||[]).reduce((t,r)=>t+ipaid(r),0),pi=x=>toRowsD(x).reduce((t,e)=>t+intr(e.r),0),pr=x=>pi(x)+lt(x);
+if(k>=0){const t=pr(k),o=S.p.length==2?1-k:-1,other=o>=0?pr(o):0,give=o>=0?t/2:0,recv=other/2;return{tI:t,ints:pi(k),late:lt(k),E:E,sh:sh,give:give,recv:recv,on:o>=0?S.p[o].title:"",sub:t-give+recv,net:t-give+recv-sh,list:[]}}
+const list=S.p.map((p,x)=>({t:p.title,p:pr(x),late:lt(x),net:pr(x)-sh}));const tI=list.reduce((t,y)=>t+y.p,0);return{tI:tI,E:E,sh:sh,net:tI-E,list:list}}
+function netBox(l,v){return box(l,`<span style="color:${v>=0?"#16a34a":"#dc2626"};font-size:20px">${f(v)}</span>`)}
+function profBoxes(k){const ps=profSum(k),n=S.p.length||1;let h="";
+if(k>=0){h=box("Interest ₹ (submitted names)",f(ps.ints))+box("Late Interest ₹ (paid, all names)",f(ps.late))+box("Profit ₹ (Interest + Late Interest)",f(ps.tI))+box("Given to "+ps.on+" ₹ (Profit ÷ 2)",`<span style="color:#dc2626">− ${f(ps.give)}</span>`)+box("Received from "+ps.on+" ₹ (its Profit ÷ 2)",`<span style="color:#16a34a">+ ${f(ps.recv)}</span>`)+box("Profit after sharing ₹ (Profit − Given + Received)",f(ps.sub))+box("Expenses Share ₹ ("+f(ps.E)+" ÷ "+n+")",`<span style="color:#dc2626">− ${f(ps.sh)}</span>`)+netBox("Total Profit ₹ (after Expenses Share)",ps.net)}
+else{h=ps.list.map(y=>box(y.t+" Profit ₹",f(y.p))+box(y.t+" Late Interest ₹ (included)",f(y.late))).join("")+box("Overall Profit ₹",f(ps.tI))+box("Total Expenses ₹",f(ps.E))+netBox("Total Profit ₹ (Overall Profit − Total Expenses)",ps.net)}
+return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-bottom:14px">${h}</div>`}
+function showOver(){openOver();try{history.pushState(null,"","#o")}catch(e){}}
+function overRows(){const o=[],T=tdy();S.p.forEach(p=>p.rows.forEach(r=>{const e=endD(r);if(e&&T>e&&(+r.amt||0)>0)o.push({pt:p.title,r:r,e:e,bal:Math.max(0,(+r.amt||0)-dep(r)),acc:accr(r,T),paid:ipaid(r),due:idue(r,T)})}));return o}
+function openOver(){const ov=document.getElementById("ov"),o=overRows(),T=tdy(),sm=k=>o.reduce((t,x)=>t+x[k],0);
+const rows=o.length?o.map((x,i)=>`<tr><td>${i+1}</td><td>${x.pt}</td><td>${esc(x.r.name||"")}</td><td>${f(+x.r.amt||0)}</td><td>${f(dep(x.r))}</td><td>${fd(x.e)}</td><td>${fd(T)}</td><td style="font-weight:700;color:${x.bal>0?"#dc2626":"#16a34a"}">${f(x.bal)}</td><td>${f(x.acc)}</td><td>${f(x.paid)}</td><td style="font-weight:700;color:${x.due>0?"#dc2626":"#16a34a"}">${f(x.due)}</td></tr>`).join(""):`<tr><td colspan="11" style="padding:16px;text-align:center">End date over aanavanga yaarum illa ✅</td></tr>`;
+ov.innerHTML=`<div class="mb"><div class="hd"><b style="font-size:18px">⌛ End Date Over Name List</b><span class="dl"><button onclick="dlOver()">⬇ Download</button> <button class="g" onclick="window.print()">🖨 Print</button> <button class="g" onclick="hideTO()">← Back</button></span></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px">${box("Total Balance ₹",`<span style="color:#dc2626;font-size:20px">${f(sm("bal"))}</span>`)}${box("Total Interest Due ₹",`<span style="color:#dc2626;font-size:20px">${f(sm("due"))}</span>`)}</div>
+<div class="sc"><table style="min-width:1000px"><thead><tr><th>No</th><th>Partner</th><th>Name</th><th>Amount ₹</th><th>Deposit ₹</th><th>End Date</th><th>Today Date</th><th>Balance ₹</th><th>Interest ₹ (till today)</th><th>Interest Paid ₹</th><th>Interest Due ₹</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="3">Total</td><td>${f(o.reduce((t,x)=>t+(+x.r.amt||0),0))}</td><td>${f(o.reduce((t,x)=>t+dep(x.r),0))}</td><td></td><td></td><td>${f(sm("bal"))}</td><td>${f(sm("acc"))}</td><td>${f(sm("paid"))}</td><td>${f(sm("due"))}</td></tr></tfoot></table></div></div>`;
+ov.style.display="block";document.body.classList.add("pm");window.scrollTo(0,0)}
+function dlOver(){const T=tdy(),o=[["End Date Over Name List"],["No","Partner","Name","Amount","Deposit","End Date","Today Date","Balance","Interest till today","Interest Paid","Interest Due"]];
+overRows().forEach((x,i)=>o.push([i+1,x.pt,x.r.name,x.r.amt,dep(x.r),fd(x.e),fd(T),x.bal,x.acc.toFixed(2),x.paid.toFixed(2),x.due.toFixed(2)]));get("End-Date-Over-Name-List.csv",o.map(a=>a.map(q).join(",")).join("\n"))}
+function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function showExp(){openExp();try{history.pushState(null,"","#e")}catch(e){}}
+function openExp(){const ov=document.getElementById("ov"),E=S.exp||[],tot=E.reduce((s,x)=>s+(+x.p||0),0);
+const inp="padding:8px;border:1px solid var(--bd);border-radius:6px;background:var(--card);color:var(--tx);font-size:14px";
+const rows=E.length?E.map((x,k)=>`<tr><td>${k+1}</td><td>${fd(x.d)}</td><td>${esc(x.n)}</td><td>${f(+x.p||0)}</td><td><button class="x" onclick="delExp(${k})">✕</button></td></tr>`).join(""):`<tr><td colspan="5" style="padding:14px;text-align:center">Innum expense enter pannala</td></tr>`;
+ov.innerHTML=`<div class="mb"><div class="hd"><b style="font-size:18px">🧾 Expenses</b><span class="dl"><button onclick="dlExp()">⬇ Download</button> <button class="g" onclick="window.print()">🖨 Print</button> <button class="g" onclick="hideTO()">← Back</button></span></div>
+<div style="margin-bottom:12px">${box("Total Expenses ₹",`<span style="color:#dc2626;font-size:20px">${f(tot)}</span>`)}</div>
+<div class="dl" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px"><input id="ed" type="text" inputmode="numeric" maxlength="10" placeholder="dd-mm-yyyy" value="${fd(tdy())}" oninput="fmtD(this)" style="${inp};width:125px"><input id="en" type="text" placeholder="Bought (item name)" onkeydown="if(event.key=='Enter')document.getElementById('ep').focus()" style="${inp};width:200px"><input id="ep" type="number" placeholder="Price ₹" onkeydown="if(event.key=='Enter')addExp()" style="${inp};width:130px"><button onclick="addExp()">+ Add</button><span id="emsg" style="color:#dc2626;font-size:13px"></span></div>
+<div class="sc"><table style="min-width:480px"><thead><tr><th>No</th><th>Date</th><th>Bought</th><th>Price ₹</th><th></th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="3">Total</td><td>${f(tot)}</td><td></td></tr></tfoot></table></div></div>`;
+ov.style.display="block";document.body.classList.add("pm");window.scrollTo(0,0)}
+function addExp(){const n=document.getElementById("en").value.trim(),pr=+document.getElementById("ep").value,dv=document.getElementById("ed").value.trim(),m=document.getElementById("emsg");
+if(!n){m.textContent="Bought name podunga";return}
+if(!(pr>0)){m.textContent="Price podunga";return}
+const d=dv?parseD(dv):tdy();if(d===null){m.textContent="Date dd-mm-yyyy format-la podunga";return}
+(S.exp=S.exp||[]).push({d:d,n:n,p:pr});save();openExp();document.getElementById("en").focus()}
+function delExp(k){S.exp.splice(k,1);save();openExp()}
+function dlExp(){const E=S.exp||[];const o=[["Expenses"],["No","Date","Bought","Price"]];E.forEach((x,k)=>o.push([k+1,fd(x.d),x.n,x.p]));o.push(["Total","","",E.reduce((s,x)=>s+(+x.p||0),0)]);get("Expenses.csv",o.map(a=>a.map(q).join(",")).join("\n"))}
+function ipHTML(r,i,j,inp){if(teAuto(r)!="Y")return"";const x=over(r);if(!x)return"";
+const L=(r.ipays||[]).map((y,k)=>`${y.d?fd(y.d):"-"} ₹${f(+y.a||0)} <button class="x" onclick="delIP(${i},${j},${k})">✕</button>`).join(" &nbsp;|&nbsp; ");
+return `<div class="dl" style="padding:10px;border:1px dashed var(--bd);border-radius:8px;margin:0 0 12px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><b style="font-size:13px">Interest Pay:</b><input id="ipd" type="text" inputmode="numeric" maxlength="10" placeholder="dd-mm-yyyy" value="${fd(tdy())}" oninput="fmtD(this)" style="${inp};width:125px"><input id="ipa" type="number" value="${x.due||""}" placeholder="Interest ₹" onkeydown="if(event.key=='Enter')addIP(${i},${j})" style="${inp};width:140px"><button onclick="addIP(${i},${j})">+ Pay Interest</button><span id="imsg" style="color:#dc2626;font-size:13px"></span></div>${L?`<div style="font-size:13px;margin-top:8px;color:var(--mu)">Interest paid: ${L}</div>`:""}</div>`}
+function addIP(i,j){const r=S.p[i].rows[j],m=document.getElementById("imsg"),a=+document.getElementById("ipa").value,dv=document.getElementById("ipd").value.trim();
+if(!(a>0)){m.textContent="Interest amount podunga";return}
+const d=dv?parseD(dv):tdy();if(d===null){m.textContent="Date dd-mm-yyyy format-la podunga";return}
+(r.ipays=r.ipays||[]).push({d:d,a:a});save();render();openDet(i,j)}
+function delIP(i,j,k){S.p[i].rows[j].ipays.splice(k,1);save();render();openDet(i,j)}
+function parseD(v){const m=String(v).match(/^(\d{2})-(\d{2})-(\d{4})$/);if(!m)return null;const d=new Date(+m[3],+m[2]-1,+m[1]);if(d.getDate()!=+m[1]||d.getMonth()!=+m[2]-1)return null;return m[3]+"-"+m[2]+"-"+m[1]}
+function showDet(i,j){openDet(i,j);try{history.pushState(null,"","#x"+i+"_"+j)}catch(e){}}
+function box(l,v){return `<div style="border:1px solid var(--bd);border-radius:8px;padding:8px 10px"><div style="color:var(--mu);font-size:12px">${l}</div><div style="font-weight:700;margin-top:2px">${v}</div></div>`}
+function ledger(r){let b=+r.amt||0;return (r.pays||[]).map(x=>{b-=(+x.a||0);return {d:x.d,a:+x.a||0,b:b}})}
+function openDet(i,j){const p=S.p[i],r=p&&p.rows[j],ov=document.getElementById("ov");if(!r){closeTO();return}
+const amt=+r.amt||0,tot=dep(r),bal=amt-tot,L=ledger(r),ok=!!(r.name&&amt>0);
+const inp="padding:8px;border:1px solid var(--bd);border-radius:6px;background:var(--card);color:var(--tx);font-size:14px";
+const rows=L.length?L.map((x,k)=>`<tr><td>${k+1}</td><td>${x.d?fd(x.d):"-"}</td><td>${f(x.a)}</td><td style="font-weight:700;color:${x.b<=0?"#16a34a":"#dc2626"}">${f(x.b)}</td><td><button class="x" onclick="delPay(${i},${j},${k})">✕</button></td></tr>`).join(""):`<tr><td colspan="5" style="padding:14px;text-align:center">Innum deposit enter pannala</td></tr>`;
+ov.innerHTML=`<div class="mb"><div class="hd"><b style="font-size:18px">Details - ${r.name||"(name illa)"} <span style="color:var(--mu);font-weight:400;font-size:14px">(${p.title})</span></b><span class="dl"><button onclick="dlDet(${i},${j})">⬇ Download</button> <button class="g" onclick="window.print()">🖨 Print</button> <button class="g" onclick="hideTO()">← Back</button></span></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">${box("Name",r.name||"-")}${box("Phone Number",r.native||"-")}${box("Guarantor",r.guar||"-")}${box("Type",tl(r)||"-")}${box("Amount ₹",f(amt))}${box("Starting Date",fd(r.start)||"-")}${box("End Date",fd(endD(r))||"-")}${box("Pay (Method)",payCell(r)||"-")}${box("Total Deposit ₹",`<span style="color:#16a34a">${f(tot)}</span>`)}${box("Balance ₹",`<span style="color:${bal<=0?"#16a34a":"#dc2626"};font-size:18px">${f(bal)}</span>`)}${teBoxes(r,i,j,bal,inp)}${missBoxes(r)}</div>
+<div class="dl" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:16px 0 10px"><input id="pd" type="text" inputmode="numeric" maxlength="10" placeholder="dd-mm-yyyy" value="${fd(tdy())}" oninput="fmtD(this)" style="${inp};width:125px"><input id="pa" type="number" value="${pay(r)||''}" placeholder="Deposit amount ₹" onkeydown="if(event.key=='Enter')addPay(${i},${j})" style="${inp};width:170px"><button onclick="addPay(${i},${j})"${ok?"":' disabled style="opacity:.45;cursor:not-allowed"'}>+ Add Deposit</button><span id="pmsg" style="color:#dc2626;font-size:13px">${ok?"":"Main table-la Name and Amount mudhala podunga"}</span></div>
+${ipHTML(r,i,j,inp)}<div class="sc"><table style="min-width:420px"><thead><tr><th>No</th><th>Date</th><th>Deposit ₹</th><th>Balance ₹</th><th></th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="2">Total</td><td>${f(tot)}</td><td>${f(bal)}</td><td></td></tr></tfoot></table></div></div>`;
+ov.style.display="block";document.body.classList.add("pm");window.scrollTo(0,0)}
+function addPay(i,j){const r=S.p[i].rows[j],msg=document.getElementById("pmsg"),a=+document.getElementById("pa").value,dv=document.getElementById("pd").value.trim();
+if(!r.name||!(+r.amt>0)){msg.textContent="Main table-la Name and Amount mudhala podunga";return}
+if(!(a>0)){msg.textContent="Deposit amount podunga";return}
+const d=dv?parseD(dv):tdy();if(d===null){msg.textContent="Date dd-mm-yyyy format-la podunga";return}
+if(!hasP(r)){r.pays=[];if(+r.dep>0)r.pays.push({d:"",a:+r.dep})}
+r.pays.push({d:d,a:a});save();render();openDet(i,j);document.getElementById("pa").focus()}
+function delPay(i,j,k){const r=S.p[i].rows[j];r.pays.splice(k,1);save();render();openDet(i,j)}
+function dlDet(i,j){const r=S.p[i].rows[j],L=ledger(r),amt=+r.amt||0;
+const o=[["Details - "+(r.name||"")],["Partner",S.p[i].title],["Name",r.name],["Phone Number",r.native],["Guarantor",r.guar],["Type",tl(r)],["Amount",amt],["Starting Date",fd(r.start)],["End Date",fd(endD(r))],["Total Deposit",dep(r)],["Balance",amt-dep(r)],[],["No","Date","Deposit","Balance"]];
+{const te=teAuto(r),ins=[["Time End",te=="Y"?"Yes":"No"]];if(te=="Y"){const x=over(r);ins.push(["Current Date",fd(r.cdate||tdy())]);if(x)ins.push(["Overdue Days",x.days],["Interest till Current Date",x.tot.toFixed(2)],["Interest Paid",x.paid.toFixed(2)],["Interest Due",x.due.toFixed(2)])}const ms=missInfo(r);if(ms)ins.push(["Installments Due",ms.due],["Installments Paid (covered)",ms.covered],["Missed to Pay",ms.missed],["Missed Amount",ms.amt]);o.splice(11,0,...ins)}
+L.forEach((x,k)=>o.push([k+1,x.d?fd(x.d):"",x.a,x.b]));
+get("Details-"+(r.name||"row")+".csv",o.map(a=>a.map(q).join(",")).join("\n"))}
+function closeTO(){document.getElementById("ov").style.display="none";document.body.classList.remove("pm")}
+function dlTO(k,m){m=m||'p';const all=k<0;let h,o;
+if(m=='d'){h=["No"].concat(all?["Partner"]:[],["Name","Phone Number","Guarantor Name","Type","Amount","Total Interest","Deposit","Submitted On"]);o=toRowsD(k).map((e,i)=>[i+1].concat(all?[e.pt]:[],[e.r.name,e.r.native,e.r.guar,tl(e.r),e.r.amt,intr(e.r).toFixed(2),dep(e.r),fd(e.r.subm)]))}
+else if(m=='f'){const D=toRowsD(k);h=["No"].concat(all?["Partner"]:[],["Name","Type","Amount","Interest","Late Interest"]);o=D.map((e,i)=>[i+1].concat(all?[e.pt]:[],[e.r.name,tl(e.r),e.r.amt,intr(e.r).toFixed(2),ipaid(e.r).toFixed(2)]));o.push(["Total"].concat(all?[""]:[],["","",D.reduce((s,e)=>s+(+e.r.amt||0),0),D.reduce((s,e)=>s+intr(e.r),0).toFixed(2),D.reduce((s,e)=>s+ipaid(e.r),0).toFixed(2)]));const ps=profSum(k);o.push([]);ps.list.forEach(y=>{o.push([y.t+" Profit",y.p.toFixed(2)],[y.t+" Late Interest",y.late.toFixed(2)])});if(k>=0)o.push(["Interest (submitted)",ps.ints.toFixed(2)],["Late Interest",ps.late.toFixed(2)]);o.push([k<0?"Overall Profit":"Profit",ps.tI.toFixed(2)]);if(k>=0)o.push(["Given to "+ps.on+" (half)",ps.give.toFixed(2)],["Received from "+ps.on+" (half)",ps.recv.toFixed(2)]);if(k>=0)o.push(["Profit after sharing",ps.sub.toFixed(2)],["Expenses Share",ps.sh.toFixed(2)]);else o.push(["Total Expenses",ps.E.toFixed(2)]);o.push(["Total Profit",ps.net.toFixed(2)])}
+else{h=["No"].concat(all?["Partner"]:[],["Name","Phone Number","Guarantor Name","Amount","Deposit","Balance"]);o=toRows(k).map((r,i)=>[i+1].concat(all?[r.pt]:[],[r.name,r.ph,r.g,r.a,r.d,r.b]))}
+get(ttl(k,m).replace(/ /g,"-")+".csv",[[ttl(k,m)],h,...o].map(r=>r.map(q).join(",")).join("\n"))}
+let LU="";
+function doLogin(){const u=document.getElementById("lu").value.trim(),pw=document.getElementById("lp").value,e=document.getElementById("lerr");
+if(!u){e.textContent="User Name podunga";return}
+if(pw!=="passwordlogin"){e.textContent="Password thappu, marubadiyum try pannunga";return}
+e.textContent="";LU=u;try{localStorage.setItem("finlogin",u)}catch(x){}showApp()}
+function showApp(){document.getElementById("lg").style.display="none";document.getElementById("main").style.display="block";document.getElementById("ulbl").textContent="👤 "+LU}
+function logout(){LU="";try{localStorage.removeItem("finlogin")}catch(x){}closeTO();document.getElementById("main").style.display="none";document.getElementById("lg").style.display="flex";document.getElementById("lp").value="";document.getElementById("lu").value=""}
+try{const sv=localStorage.getItem("finlogin");if(sv){LU=sv}}catch(x){}
+load();render();if(LU)showApp();
+</script></body></html>
